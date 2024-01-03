@@ -37,17 +37,42 @@ def Simulate_Move(Chess_Map,old_move,new_move):
     #switch up ^ v
     Chess_Map[old_index][0] = ''
     Chess_Map[old_index][3] = ''
-def Depth_Expansion(Depth_Arr):
-    # unfinished, my brain has a hard time trying to comprehend making a recursion for this while maintaining the chess map state on every "branch"
-    for Move in Depth_Arr:
-        Simulated_Chess_Map = copy.deepcopy(Pieces_Positions)
+def Worthiness_Depth_Reading(Move,worthiness):
+    if Move["Answer"] != None:
+        for x in Move["Answer"]:
+            Worthiness_Depth_Reading(x,worthiness)
+    else:
+        worthiness += Move["Piece_Move"][1]
+    return worthiness
+def Depth_Expansion(Move,Multi_Dimensional_Simulated_Chess_Map):
+    #very cool recursion
+    if Move["Answer"] != None:
         Piece_Position = Move["Piece"]["Piece_Position"]
         Target_Position = Move["Piece_Move"][0]
-        Simulate_Move(Simulated_Chess_Map,Piece_Position,Target_Position)
-        Layer = Move
-        while True:
-            Layer = Layer["Answer"] 
-
+        Simulate_Move(Multi_Dimensional_Simulated_Chess_Map,Piece_Position,Target_Position)
+        for x in Move["Answer"]:
+            Depth_Expansion(x,Multi_Dimensional_Simulated_Chess_Map)
+        return
+    else:
+        All_Available_Branch_Moves = Move_Collection(Multi_Dimensional_Simulated_Chess_Map,Game_Variables["Turn"],["All"])
+        answers = []
+        for Analysed_Branch_Move in All_Available_Branch_Moves:
+            Multi_Dim_Copy = copy.deepcopy(Multi_Dimensional_Simulated_Chess_Map)
+            Piece_Position = Analysed_Branch_Move["Owner"]["Piece_Position"]
+            Target_Position = Analysed_Branch_Move["Move"]
+            Simulate_Move(Multi_Dim_Copy,Piece_Position,Target_Position)
+            if King_Danger(Multi_Dim_Copy) == False:
+                Multi_Dim_Copy = copy.deepcopy(Multi_Dimensional_Simulated_Chess_Map)
+                Target_Location = Analysed_Branch_Move["Move"][1]*8+Analysed_Branch_Move["Move"][0]
+                answers.append(
+                    {
+                        "Piece":Analysed_Branch_Move["Owner"],
+                        "Piece_Move":[Analysed_Branch_Move["Move"],Piece_Worthiness[Multi_Dim_Copy[Target_Location][0]]],
+                        "Answer":None
+                    }
+                )
+        Move["Answer"] = answers
+        return
 def AI_Mechanics(Pieces_Positions):
     if(Game_Variables["counter"] == 0):
         Game_Variables["counter"] += 1
@@ -75,12 +100,17 @@ def AI_Mechanics(Pieces_Positions):
                     "Answer":None
                 }
             )
-
+    Multi_Dimensional_Simulated_Chess_Map = copy.deepcopy(Pieces_Positions)
     Depth = 1
-    #for x in range(0,Depth):
-        #Depth_Expansion(Depth_Array)
+    for x in range(0,Depth):
+        for Move in Depth_Array:
+            Depth_Expansion(Move,Multi_Dimensional_Simulated_Chess_Map)
+            #print(Move)
     
-        
+    #lazy way, still thinking on how to properly modify worthiness collecting so the moves are actually weighted
+    for x in range(0,len(Depth_Array)):
+        Move["Piece_Move"][1] = Worthiness_Depth_Reading(Depth_Array[x],Depth_Array[x]["Piece_Move"][1])
+
     #find best move worthiness
     Max_Worthiness = 0
     for Option in Depth_Array:
